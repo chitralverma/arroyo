@@ -25,8 +25,8 @@ jobs:
       fail-fast: true
       matrix:
         config:
-          - { runner: ubuntu-latest, target: x86_64-unknown-linux-gnu, protoc: linux-x86_64 }
-          - { runner: ubuntu-latest, target: aarch64-unknown-linux-gnu, protoc: linux-aarch_64 }
+          - { runner: ubuntu-latest, build_target: x86_64-unknown-linux-gnu, protoc: linux-x86_64, artifact: linux-x86_64, exe_ext: "" }
+          - { runner: ubuntu-latest, build_target: aarch64-unknown-linux-gnu, protoc: linux-aarch_64, artifact: linux-aarch64, exe_ext: "" }
     runs-on: ${{ matrix.config.runner }}
     services:
       postgres:
@@ -44,20 +44,26 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.config.target }}
       - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - run: echo "PYO3_PYTHON=${{ env.pythonLocation }}/python" >> $GITHUB_ENV
-        shell: bash
+      - run: echo "PYO3_PYTHON=${{ env.pythonLocation }}/bin/python3" >> $GITHUB_ENV
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('webui/pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-${{ runner.os }}-
+      - name: Run frontend build
+        run: cd webui && pnpm install && pnpm build
       - name: Install protoc compiler
         run: |
           curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-${{ matrix.config.protoc }}.zip
@@ -67,45 +73,68 @@ jobs:
         run: |
           cargo install --debug refinery_cli --version ${{ env.REFINERY_VERSION }}
           refinery migrate -e REFINERY_CONFIG -p crates/arroyo-api/migrations
-      - name: Run frontend build
-        run: cd webui && pnpm install && pnpm build
-      - name: Create output directory
-        run: mkdir artifacts
+      - name: Install cross compiler for aarch64
+        if: matrix.config.build_target == 'aarch64-unknown-linux-gnu'
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+      - run: mkdir artifacts
       - name: Build Arroyo with Python
-        run: cargo build --features python --release --package arroyo --target ${{ matrix.config.target }} && strip target/${{ matrix.config.target }}/release/arroyo && mv target/${{ matrix.config.target }}/release/arroyo artifacts/arroyo-python
+        run: |
+          cargo build --features python --release --package arroyo --target ${{ matrix.config.build_target }}
+          cp target/${{ matrix.config.build_target }}/release/arroyo${{ matrix.config.exe_ext }} artifacts/arroyo-python${{ matrix.config.exe_ext }}
       - name: Build Arroyo without Python
-        run: cargo build --release --package arroyo --target ${{ matrix.config.target }} && strip target/${{ matrix.config.target }}/release/arroyo && mv target/${{ matrix.config.target }}/release/arroyo artifacts/arroyo
+        run: |
+          cargo build --release --package arroyo --target ${{ matrix.config.build_target }}
+          cp target/${{ matrix.config.build_target }}/release/arroyo${{ matrix.config.exe_ext }} artifacts/arroyo${{ matrix.config.exe_ext }}
+      - name: Package (with Python)
+        uses: a7ul/tar-action@v1
+        with:
+          command: c
+          files: artifacts/arroyo-python${{ matrix.config.exe_ext }}
+          outPath: arroyo-${{ matrix.config.artifact }}-python.tar.gz
+      - name: Package (without Python)
+        uses: a7ul/tar-action@v1
+        with:
+          command: c
+          files: artifacts/arroyo${{ matrix.config.exe_ext }}
+          outPath: arroyo-${{ matrix.config.artifact }}.tar.gz
       - uses: actions/upload-artifact@v4
         with:
-          name: arroyo-${{ matrix.config.target }}
-          path: artifacts/*
-          if-no-files-found: error
+          name: arroyo-${{ matrix.config.artifact }}
+          path: |
+            arroyo-${{ matrix.config.artifact }}-python.tar.gz
+            arroyo-${{ matrix.config.artifact }}.tar.gz
 
   macos:
     strategy:
       fail-fast: true
       matrix:
         config:
-          - { runner: macos-13, target: x86_64-apple-darwin, protoc: osx-x86_64 }
-          - { runner: macos-14, target: aarch64-apple-darwin, protoc: osx-aarch_64 }
+          - { runner: macos-latest, build_target: x86_64-apple-darwin, protoc: osx-x86_64, artifact: macos-x86_64, exe_ext: "" }
+          - { runner: macos-latest, build_target: aarch64-apple-darwin, protoc: osx-aarch_64, artifact: macos-m1, exe_ext: "" }
     runs-on: ${{ matrix.config.runner }}
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.config.target }}
       - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - run: echo "PYO3_PYTHON=${{ env.pythonLocation }}/python3" >> $GITHUB_ENV
-        shell: bash
+      - run: echo "PYO3_PYTHON=${{ env.pythonLocation }}/bin/python3" >> $GITHUB_ENV
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('webui/pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-${{ runner.os }}-
+      - name: Run frontend build
+        run: cd webui && pnpm install && pnpm build
       - name: Install protoc compiler
         run: |
           curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-${{ matrix.config.protoc }}.zip
@@ -120,17 +149,107 @@ jobs:
         run: |
           cargo install --debug refinery_cli --version ${{ env.REFINERY_VERSION }}
           refinery migrate -e REFINERY_CONFIG -p crates/arroyo-api/migrations
-      - name: Run frontend build
-        run: cd webui && pnpm install && pnpm build
-      - name: Create output directory
-        run: mkdir artifacts
+      - run: mkdir artifacts
       - name: Build Arroyo with Python
-        run: cargo build --features python --release --package arroyo --target ${{ matrix.config.target }} && strip target/${{ matrix.config.target }}/release/arroyo && mv target/${{ matrix.config.target }}/release/arroyo artifacts/arroyo-python
+        run: |
+          cargo build --features python --release --package arroyo --target ${{ matrix.config.build_target }}
+          cp target/${{ matrix.config.build_target }}/release/arroyo${{ matrix.config.exe_ext }} artifacts/arroyo-python${{ matrix.config.exe_ext }}
       - name: Build Arroyo without Python
-        run: cargo build --release --package arroyo --target ${{ matrix.config.target }} && strip target/${{ matrix.config.target }}/release/arroyo && mv target/${{ matrix.config.target }}/release/arroyo artifacts/arroyo
+        run: |
+          cargo build --release --package arroyo --target ${{ matrix.config.build_target }}
+          cp target/${{ matrix.config.build_target }}/release/arroyo${{ matrix.config.exe_ext }} artifacts/arroyo${{ matrix.config.exe_ext }}
+      - name: Package (with Python)
+        uses: a7ul/tar-action@v1
+        with:
+          command: c
+          files: artifacts/arroyo-python${{ matrix.config.exe_ext }}
+          outPath: arroyo-${{ matrix.config.artifact }}-python.tar.gz
+      - name: Package (without Python)
+        uses: a7ul/tar-action@v1
+        with:
+          command: c
+          files: artifacts/arroyo${{ matrix.config.exe_ext }}
+          outPath: arroyo-${{ matrix.config.artifact }}.tar.gz
       - uses: actions/upload-artifact@v4
         with:
-          name: arroyo-${{ matrix.config.target }}
-          path: artifacts/*
-          if-no-files-found: error
-          
+          name: arroyo-${{ matrix.config.artifact }}
+          path: |
+            arroyo-${{ matrix.config.artifact }}-python.tar.gz
+            arroyo-${{ matrix.config.artifact }}.tar.gz
+
+  windows:
+    strategy:
+      fail-fast: true
+      matrix:
+        config:
+          - { runner: windows-latest, build_target: x86_64-pc-windows-msvc, protoc: win64, artifact: windows-x86_64, exe_ext: ".exe" }
+          - { runner: windows-latest, build_target: aarch64-pc-windows-msvc, protoc: win64, artifact: windows-aarch64, exe_ext: ".exe" }
+    runs-on: ${{ matrix.config.runner }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: echo "PYO3_PYTHON=${{ env.pythonLocation }}\\python.exe" >> $GITHUB_ENV
+        shell: pwsh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('webui/pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-${{ runner.os }}-
+      - name: Run frontend build
+        run: cd webui && pnpm install && pnpm build
+      - name: Install PostgreSQL 14
+        shell: pwsh
+        run: |
+          choco install postgresql14 -y --no-progress
+          echo "C:\Program Files\PostgreSQL\14\bin" >> $env:GITHUB_PATH
+          Start-Sleep -Seconds 10
+          psql -U postgres -c "CREATE USER $env:POSTGRES_USER WITH PASSWORD '$env:POSTGRES_PASSWORD' SUPERUSER;"
+          createdb $env:POSTGRES_DB
+      - name: Run DB migrations
+        run: |
+          cargo install --debug refinery_cli --version ${{ env.REFINERY_VERSION }}
+          refinery migrate -e REFINERY_CONFIG -p crates/arroyo-api/migrations
+      - name: Install protoc compiler
+        shell: bash
+        run: |
+          curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-${{ matrix.config.protoc }}.zip
+          unzip -o protoc-${{ env.PROTOC_VERSION }}-${{ matrix.config.protoc }}.zip -d protoc
+          echo "$PWD/protoc/bin" >> $GITHUB_PATH
+      - run: mkdir artifacts
+        shell: pwsh
+      - name: Build Arroyo with Python
+        run: cargo build --features python --release --package arroyo --target ${{ matrix.config.build_target }}; Copy-Item target\${{ matrix.config.build_target }}\release\arroyo.exe artifacts\arroyo-python.exe
+        shell: pwsh
+      - name: Build Arroyo without Python
+        run: cargo build --release --package arroyo --target ${{ matrix.config.build_target }}; Copy-Item target\${{ matrix.config.build_target }}\release\arroyo.exe artifacts\arroyo.exe
+        shell: pwsh
+      - name: Package (with Python)
+        uses: a7ul/tar-action@v1
+        with:
+          command: c
+          files: artifacts/arroyo-python.exe
+          outPath: arroyo-${{ matrix.config.artifact }}-python.tar.gz
+      - name: Package (without Python)
+        uses: a7ul/tar-action@v1
+        with:
+          command: c
+          files: artifacts/arroyo.exe
+          outPath: arroyo-${{ matrix.config.artifact }}.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arroyo-${{ matrix.config.artifact }}
+          path: |
+            arroyo-${{ matrix.config.artifact }}-python.tar.gz
+            arroyo-${{ matrix.config.artifact }}.tar.gz
