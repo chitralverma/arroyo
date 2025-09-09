@@ -215,13 +215,13 @@ jobs:
             msys2_packages: >-
               mingw-w64-x86_64-toolchain
 
-          - runner: windows-latest
-            build_target: aarch64-pc-windows-gnu
-            protoc: win64
-            artifact: windows-aarch64
-            msys2_packages: >-
-              mingw-w64-x86_64-toolchain
-              mingw-w64-aarch64-toolchain
+          # - runner: windows-latest
+          #   build_target: aarch64-pc-windows-gnu
+          #   protoc: win64
+          #   artifact: windows-aarch64
+          #   msys2_packages: >-
+          #     mingw-w64-x86_64-toolchain
+          #     mingw-w64-aarch64-toolchain
     name: ${{ matrix.artifact }} (GNU) build
     runs-on: ${{ matrix.runner }}
     steps:
