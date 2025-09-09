@@ -123,13 +123,13 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - runner: macos-14-large
+          - runner: macos-latest
             protoc: osx-x86_64
             artifact: macos-x86_64
 
-          - runner: macos-14-xlarge
-            protoc: osx-aarch_64
-            artifact: macos-m1
+          # - runner: macos-14-xlarge
+          #   protoc: osx-aarch_64
+          #   artifact: macos-m1
     name: ${{ matrix.artifact }} build
     runs-on: ${{ matrix.runner }}
     steps:
@@ -216,11 +216,13 @@ jobs:
             build_target: x86_64-pc-windows-msvc
             protoc: win64
             artifact: windows-x86_64
+            vcpkg_triplet: x64-windows
 
           - runner: windows-latest
             build_target: aarch64-pc-windows-msvc
             protoc: win64
             artifact: windows-aarch64
+            vcpkg_triplet: arm64-windows
     name: ${{ matrix.artifact }} build
     runs-on: ${{ matrix.runner }}
     steps:
@@ -242,6 +244,9 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
+      - name: Set PYO3_PYTHON environment variable
+        run: echo "PYO3_PYTHON=${{ env.pythonLocation }}\python.exe" >> $env:GITHUB_ENV
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -260,6 +265,12 @@ jobs:
           Invoke-WebRequest -Uri "https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-${{ matrix.protoc }}.zip" -OutFile protoc.zip
           Expand-Archive -Path protoc.zip -DestinationPath .
           echo "PROTOC=$($PWD.Path)\bin\protoc.exe" >> $env:GITHUB_ENV
+
+      - name: Setup vcpkg and C dependencies
+        uses: lukka/run-vcpkg@v11
+        with:
+          # Fix: Use the dynamic vcpkg_triplet from the matrix
+          vcpkgArguments: jemalloc:${{ matrix.vcpkg_triplet }} cyrus-sasl:${{ matrix.vcpkg_triplet }}
 
       - name: Setup PostgreSQL
         run: |
@@ -286,7 +297,6 @@ jobs:
 
       - name: Build Arroyo with Python
         run: |
-          $env:PYO3_PYTHON = "${{ env.pythonLocation }}\python.exe"
           cargo build --features python --release --package arroyo --target ${{ matrix.build_target }}
           Move-Item "target\${{ matrix.build_target }}\release\arroyo.exe" "artifacts\arroyo-python.exe"
 
