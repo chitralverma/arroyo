@@ -269,7 +269,7 @@ jobs:
       - name: Setup vcpkg and C dependencies
         uses: lukka/run-vcpkg@v11
         with:
-          # Fix: Use the dynamic vcpkg_triplet from the matrix
+          vcpkgCommitId: 'e55d3d4b752210a20822184435e985448b139366'
           vcpkgArguments: jemalloc:${{ matrix.vcpkg_triplet }} cyrus-sasl:${{ matrix.vcpkg_triplet }}
 
       - name: Setup PostgreSQL
