@@ -42,6 +42,15 @@ jobs:
         ports:
           - 5432:5432
     steps:
+      - name: Setup conditional aarch64 cross-compilation
+        if: matrix.config.build_target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+          mkdir -p .cargo
+          echo '[target.aarch64-unknown-linux-gnu]' >> .cargo/config.toml
+          echo 'linker = "aarch64-linux-gnu-gcc"' >> .cargo/config.toml
+          echo "PYO3_CROSS_PYTHON_VERSION=${{ env.PYTHON_VERSION }}" >> $GITHUB_ENV
+
       - uses: actions/checkout@v5
 
       - uses: dtolnay/rust-toolchain@stable
@@ -49,6 +58,8 @@ jobs:
           targets: ${{ matrix.config.build_target }}
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: ${{ matrix.build_target }}
 
       - uses: actions/setup-python@v5
         with:
@@ -75,10 +86,6 @@ jobs:
           curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-${{ matrix.config.protoc }}.zip
           unzip protoc*.zip
           sudo mv bin/protoc /usr/local/bin
-
-      - name: Install cross compiler for aarch64
-        if: matrix.config.build_target == 'aarch64-unknown-linux-gnu'
-        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
 
       - name: Run DB migrations
         run: |
@@ -109,8 +116,8 @@ jobs:
       fail-fast: true
       matrix:
         config:
-          - { runner: macos-latest, build_target: x86_64-apple-darwin, protoc: osx-x86_64, artifact: macos-x86_64 }
-          - { runner: macos-latest, build_target: aarch64-apple-darwin, protoc: osx-x86_64, artifact: macos-m1 }
+          - { runner: macos-14, build_target: x86_64-apple-darwin, protoc: osx-x86_64, artifact: macos-x86_64 }
+          - { runner: macos-14, build_target: aarch64-apple-darwin, protoc: osx-x86_64, artifact: macos-m1 }
     runs-on: ${{ matrix.config.runner }}
     steps:
       - uses: actions/checkout@v5
@@ -120,6 +127,8 @@ jobs:
           targets: ${{ matrix.config.build_target }}
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: ${{ matrix.build_target }}
 
       - uses: actions/setup-python@v5
         with:
@@ -196,6 +205,8 @@ jobs:
           targets: ${{ matrix.config.build_target }}
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: ${{ matrix.build_target }}
 
       - uses: actions/setup-python@v5
         with:
