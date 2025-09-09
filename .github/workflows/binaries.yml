@@ -25,8 +25,8 @@ jobs:
       fail-fast: true
       matrix:
         config:
-          - { runner: ubuntu-latest, build_target: x86_64-unknown-linux-gnu, protoc: linux-x86_64, artifact: linux-x86_64, exe_ext: "" }
-          - { runner: ubuntu-latest, build_target: aarch64-unknown-linux-gnu, protoc: linux-aarch_64, artifact: linux-aarch64, exe_ext: "" }
+          - { runner: ubuntu-latest, build_target: x86_64-unknown-linux-gnu, protoc: linux-x86_64, artifact: linux-x86_64 }
+          - { runner: ubuntu-latest, build_target: aarch64-unknown-linux-gnu, protoc: linux-aarch_64, artifact: linux-aarch64 }
     runs-on: ${{ matrix.config.runner }}
     services:
       postgres:
@@ -44,6 +44,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.config.build_target }}
       - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-python@v5
         with:
@@ -69,33 +71,33 @@ jobs:
           curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-${{ matrix.config.protoc }}.zip
           unzip -o protoc-${{ env.PROTOC_VERSION }}-${{ matrix.config.protoc }}.zip -d protoc
           sudo mv protoc/bin/protoc /usr/local/bin
+      - name: Install cross compiler for aarch64
+        if: matrix.config.build_target == 'aarch64-unknown-linux-gnu'
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
       - name: Run DB migrations
         run: |
           cargo install --debug refinery_cli --version ${{ env.REFINERY_VERSION }}
           refinery migrate -e REFINERY_CONFIG -p crates/arroyo-api/migrations
-      - name: Install cross compiler for aarch64
-        if: matrix.config.build_target == 'aarch64-unknown-linux-gnu'
-        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
       - run: mkdir artifacts
       - name: Build Arroyo with Python
         run: |
           cargo build --features python --release --package arroyo --target ${{ matrix.config.build_target }}
-          cp target/${{ matrix.config.build_target }}/release/arroyo${{ matrix.config.exe_ext }} artifacts/arroyo-python${{ matrix.config.exe_ext }}
+          cp target/${{ matrix.config.build_target }}/release/arroyo artifacts/arroyo-python
       - name: Build Arroyo without Python
         run: |
           cargo build --release --package arroyo --target ${{ matrix.config.build_target }}
-          cp target/${{ matrix.config.build_target }}/release/arroyo${{ matrix.config.exe_ext }} artifacts/arroyo${{ matrix.config.exe_ext }}
+          cp target/${{ matrix.config.build_target }}/release/arroyo artifacts/arroyo
       - name: Package (with Python)
         uses: a7ul/tar-action@v1.2.0
         with:
           command: c
-          files: artifacts/arroyo-python${{ matrix.config.exe_ext }}
+          files: artifacts/arroyo-python
           outPath: arroyo-${{ matrix.config.artifact }}-python.tar.gz
       - name: Package (without Python)
         uses: a7ul/tar-action@v1.2.0
         with:
           command: c
-          files: artifacts/arroyo${{ matrix.config.exe_ext }}
+          files: artifacts/arroyo
           outPath: arroyo-${{ matrix.config.artifact }}.tar.gz
       - uses: actions/upload-artifact@v4
         with:
@@ -109,12 +111,14 @@ jobs:
       fail-fast: true
       matrix:
         config:
-          - { runner: macos-latest, build_target: x86_64-apple-darwin, protoc: osx-x86_64, artifact: macos-x86_64, exe_ext: "" }
-          - { runner: macos-latest, build_target: aarch64-apple-darwin, protoc: osx-aarch_64, artifact: macos-m1, exe_ext: "" }
+          - { runner: macos-14-large, build_target: x86_64-apple-darwin, protoc: osx-x86_64, artifact: macos-x86_64 }
+          - { runner: macos-14-xlarge, build_target: aarch64-apple-darwin, protoc: osx-aarch_64, artifact: macos-m1 }
     runs-on: ${{ matrix.config.runner }}
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.config.build_target }}
       - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-python@v5
         with:
@@ -153,22 +157,22 @@ jobs:
       - name: Build Arroyo with Python
         run: |
           cargo build --features python --release --package arroyo --target ${{ matrix.config.build_target }}
-          cp target/${{ matrix.config.build_target }}/release/arroyo${{ matrix.config.exe_ext }} artifacts/arroyo-python${{ matrix.config.exe_ext }}
+          cp target/${{ matrix.config.build_target }}/release/arroyo artifacts/arroyo-python
       - name: Build Arroyo without Python
         run: |
           cargo build --release --package arroyo --target ${{ matrix.config.build_target }}
-          cp target/${{ matrix.config.build_target }}/release/arroyo${{ matrix.config.exe_ext }} artifacts/arroyo${{ matrix.config.exe_ext }}
+          cp target/${{ matrix.config.build_target }}/release/arroyo artifacts/arroyo
       - name: Package (with Python)
         uses: a7ul/tar-action@v1.2.0
         with:
           command: c
-          files: artifacts/arroyo-python${{ matrix.config.exe_ext }}
+          files: artifacts/arroyo-python
           outPath: arroyo-${{ matrix.config.artifact }}-python.tar.gz
       - name: Package (without Python)
         uses: a7ul/tar-action@v1.2.0
         with:
           command: c
-          files: artifacts/arroyo${{ matrix.config.exe_ext }}
+          files: artifacts/arroyo
           outPath: arroyo-${{ matrix.config.artifact }}.tar.gz
       - uses: actions/upload-artifact@v4
         with:
@@ -182,12 +186,14 @@ jobs:
       fail-fast: true
       matrix:
         config:
-          - { runner: windows-latest, build_target: x86_64-pc-windows-msvc, protoc: win64, artifact: windows-x86_64, exe_ext: ".exe" }
-          - { runner: windows-latest, build_target: aarch64-pc-windows-msvc, protoc: win64, artifact: windows-aarch64, exe_ext: ".exe" }
+          - { runner: windows-latest, build_target: x86_64-pc-windows-msvc, protoc: win64, artifact: windows-x86_64 }
+          - { runner: windows-latest, build_target: aarch64-pc-windows-msvc, protoc: win64, artifact: windows-aarch64 }
     runs-on: ${{ matrix.config.runner }}
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.config.build_target }}
       - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-python@v5
         with:
