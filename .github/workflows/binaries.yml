@@ -55,10 +55,11 @@ jobs:
         with:
           version: ${{ env.PNPM_VERSION }}
           run_install: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
+          cache-dependency-path: webui/pnpm-lock.yaml
       - name: Run frontend build
         run: cd webui && pnpm install && pnpm build
       - name: Install protoc compiler
@@ -123,10 +124,11 @@ jobs:
         with:
           version: ${{ env.PNPM_VERSION }}
           run_install: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
+          cache-dependency-path: webui/pnpm-lock.yaml
       - name: Run frontend build
         run: cd webui && pnpm install && pnpm build
       - name: Install protoc compiler
@@ -194,10 +196,11 @@ jobs:
         with:
           version: ${{ env.PNPM_VERSION }}
           run_install: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
+          cache-dependency-path: webui/pnpm-lock.yaml
       - name: Run frontend build
         run: cd webui && pnpm install && pnpm build
       - name: Install PostgreSQL 14
