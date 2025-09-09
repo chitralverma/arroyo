@@ -102,13 +102,11 @@ jobs:
       - name: Build Arroyo with Python
         run: |
           PYO3_PYTHON=${{ env.pythonLocation }}/bin/python cargo build --features python --release --package arroyo
-          strip target/release/arroyo
           mv target/release/arroyo artifacts/arroyo-python
 
       - name: Build Arroyo without Python
         run: |
           cargo build --release --package arroyo
-          strip target/release/arroyo
           mv target/release/arroyo artifacts/arroyo
 
       - name: Upload Binaries
@@ -188,13 +186,11 @@ jobs:
       - name: Build Arroyo with Python
         run: |
           PYO3_PYTHON=${{ env.pythonLocation }}/bin/python cargo build --features python --release --package arroyo
-          strip target/release/arroyo
           mv target/release/arroyo artifacts/arroyo-python
 
       - name: Build Arroyo without Python
         run: |
           cargo build --release --package arroyo
-          strip target/release/arroyo
           mv target/release/arroyo artifacts/arroyo-python
 
       - name: Upload Binaries
@@ -207,27 +203,36 @@ jobs:
   windows:
     defaults:
       run:
-        shell: pwsh
+        shell: msys2 {0}
     strategy:
       fail-fast: true
       matrix:
         include:
           - runner: windows-latest
-            build_target: x86_64-pc-windows-msvc
+            build_target: x86_64-pc-windows-gnu
             protoc: win64
             artifact: windows-x86_64
-            vcpkg_triplet: x64-windows
+            msys2_packages: >-
+              mingw-w64-x86_64-toolchain
 
           - runner: windows-latest
-            build_target: aarch64-pc-windows-msvc
+            build_target: aarch64-pc-windows-gnu
             protoc: win64
             artifact: windows-aarch64
-            vcpkg_triplet: arm64-windows
-    name: ${{ matrix.artifact }} build
+            msys2_packages: >-
+              mingw-w64-x86_64-toolchain
+              mingw-w64-aarch64-toolchain
+    name: ${{ matrix.artifact }} (GNU) build
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Check out
         uses: actions/checkout@v5
+
+      - name: Setup MSYS2 and C Dependencies
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          install: ${{ matrix.msys2_packages }}
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -239,7 +244,7 @@ jobs:
         with:
           prefix-key: ${{ matrix.artifact }}
 
-      - name: Setup Python ${{ env.PYTHON_VERSION }}
+      - name: ${{ format('Setup Python {0}', env.PYTHON_VERSION) }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -253,7 +258,7 @@ jobs:
           version: ${{ env.PNPM_VERSION }}
           run_install: false
 
-      - name: Setup Node.js ${{ env.NODE_VERSION }} with caching
+      - name: ${{ format('Setup Node.js {0} with caching', env.NODE_VERSION) }}
         uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -262,23 +267,19 @@ jobs:
 
       - name: Setup protoc compiler
         run: |
-          Invoke-WebRequest -Uri "https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-${{ matrix.protoc }}.zip" -OutFile protoc.zip
-          Expand-Archive -Path protoc.zip -DestinationPath .
-          echo "PROTOC=$($PWD.Path)\bin\protoc.exe" >> $env:GITHUB_ENV
-
-      - name: Setup vcpkg and C dependencies
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgCommitId: 'e55d3d4b752210a20822184435e985448b139366'
-          vcpkgArguments: jemalloc:${{ matrix.vcpkg_triplet }} cyrus-sasl:${{ matrix.vcpkg_triplet }}
+          curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-${{ matrix.protoc }}.zip
+          unzip protoc*.zip
+          mv bin/protoc.exe /mingw64/bin/
 
       - name: Setup PostgreSQL
+        shell: pwsh
         run: |
           choco install postgresql14 --version=14.13 -y --no-progress
           echo "C:\Program Files\PostgreSQL\14\bin" >> $env:GITHUB_PATH
           Start-Process -FilePath "C:\Program Files\PostgreSQL\14\bin\pg_ctl.exe" -ArgumentList "start -D 'C:\ProgramData\PostgreSQL\14\data'" -Wait
 
       - name: Prepare PostgreSQL Database
+        shell: pwsh
         run: |
           Start-Sleep -Seconds 10
           & "psql.exe" -U postgres -c "CREATE USER ${{ env.POSTGRES_USER }} WITH PASSWORD '${{ env.POSTGRES_PASSWORD }}' SUPERUSER;"
@@ -298,12 +299,12 @@ jobs:
       - name: Build Arroyo with Python
         run: |
           cargo build --features python --release --package arroyo --target ${{ matrix.build_target }}
-          Move-Item "target\${{ matrix.build_target }}\release\arroyo.exe" "artifacts\arroyo-python.exe"
+          mv target/${{ matrix.build_target }}/release/arroyo.exe artifacts/arroyo-python.exe
 
       - name: Build Arroyo without Python
         run: |
           cargo build --release --package arroyo --target ${{ matrix.build_target }}
-          Move-Item "target\${{ matrix.build_target }}\release\arroyo.exe" "artifacts\arroyo.exe"
+          mv target/${{ matrix.build_target }}/release/arroyo.exe artifacts/arroyo.exe
 
       - name: Upload Binaries
         uses: actions/upload-artifact@v4
