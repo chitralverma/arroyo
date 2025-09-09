@@ -86,13 +86,13 @@ jobs:
           cargo build --release --package arroyo --target ${{ matrix.config.build_target }}
           cp target/${{ matrix.config.build_target }}/release/arroyo${{ matrix.config.exe_ext }} artifacts/arroyo${{ matrix.config.exe_ext }}
       - name: Package (with Python)
-        uses: a7ul/tar-action@v1
+        uses: a7ul/tar-action@v1.2.0
         with:
           command: c
           files: artifacts/arroyo-python${{ matrix.config.exe_ext }}
           outPath: arroyo-${{ matrix.config.artifact }}-python.tar.gz
       - name: Package (without Python)
-        uses: a7ul/tar-action@v1
+        uses: a7ul/tar-action@v1.2.0
         with:
           command: c
           files: artifacts/arroyo${{ matrix.config.exe_ext }}
@@ -159,13 +159,13 @@ jobs:
           cargo build --release --package arroyo --target ${{ matrix.config.build_target }}
           cp target/${{ matrix.config.build_target }}/release/arroyo${{ matrix.config.exe_ext }} artifacts/arroyo${{ matrix.config.exe_ext }}
       - name: Package (with Python)
-        uses: a7ul/tar-action@v1
+        uses: a7ul/tar-action@v1.2.0
         with:
           command: c
           files: artifacts/arroyo-python${{ matrix.config.exe_ext }}
           outPath: arroyo-${{ matrix.config.artifact }}-python.tar.gz
       - name: Package (without Python)
-        uses: a7ul/tar-action@v1
+        uses: a7ul/tar-action@v1.2.0
         with:
           command: c
           files: artifacts/arroyo${{ matrix.config.exe_ext }}
@@ -236,13 +236,13 @@ jobs:
         run: cargo build --release --package arroyo --target ${{ matrix.config.build_target }}; Copy-Item target\${{ matrix.config.build_target }}\release\arroyo.exe artifacts\arroyo.exe
         shell: pwsh
       - name: Package (with Python)
-        uses: a7ul/tar-action@v1
+        uses: a7ul/tar-action@v1.2.0
         with:
           command: c
           files: artifacts/arroyo-python.exe
           outPath: arroyo-${{ matrix.config.artifact }}-python.tar.gz
       - name: Package (without Python)
-        uses: a7ul/tar-action@v1
+        uses: a7ul/tar-action@v1.2.0
         with:
           command: c
           files: artifacts/arroyo.exe
