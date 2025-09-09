@@ -173,3 +173,92 @@ jobs:
           name: arroyo-${{ matrix.config.artifact }}
           path: artifacts/*
           if-no-files-found: error
+
+
+  windows:
+    strategy:
+      fail-fast: true
+      matrix:
+        config:
+          - { runner: windows-latest, build_target: x86_64-pc-windows-msvc, protoc: win64, artifact: windows-x86_64 }
+          - { runner: windows-latest, build_target: aarch64-pc-windows-msvc, protoc: win64, artifact: windows-aarch64 }
+    name: ${{ matrix.config.artifact }} build
+    runs-on: ${{ matrix.config.runner }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.config.build_target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: ${{ matrix.config.build_target }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set PYO3_PYTHON environment variable
+        run: echo "PYO3_PYTHON=${{ env.pythonLocation }}\python.exe" >> $env:GITHUB_ENV
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: webui/pnpm-lock.yaml
+
+      - name: Run frontend build
+        run: cd webui; pnpm install; pnpm build
+
+      - name: Install protoc compiler and set PROTOC env var
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-${{ matrix.config.protoc }}.zip" -OutFile protoc.zip
+          Expand-Archive -Path protoc.zip -DestinationPath .
+          echo "PROTOC=$($PWD.Path)\bin\protoc.exe" >> $env:GITHUB_ENV
+
+      - name: Install and start PostgreSQL
+        run: |
+          choco install postgresql14 --version=14.13 -y --no-progress
+          echo "C:\Program Files\PostgreSQL\14\bin" >> $env:GITHUB_PATH
+          Start-Process -FilePath "C:\Program Files\PostgreSQL\14\bin\pg_ctl.exe" -ArgumentList "start -D 'C:\ProgramData\PostgreSQL\14\data'" -Wait
+
+      - name: Initialize PostgreSQL Database
+        run: |
+          Start-Sleep -Seconds 10
+          & "psql.exe" -U postgres -c "CREATE USER ${{ env.POSTGRES_USER }} WITH PASSWORD '${{ env.POSTGRES_PASSWORD }}' SUPERUSER;"
+          & "createdb.exe" -U postgres ${{ env.POSTGRES_DB }}
+
+      - name: Run DB migrations
+        run: |
+          cargo install --debug refinery_cli --version ${{ env.REFINERY_VERSION }}
+          refinery migrate -e REFINERY_CONFIG -p crates/arroyo-api/migrations
+
+      - name: Create artifacts directory
+        run: mkdir artifacts
+
+      - name: Build Arroyo with Python
+        run: |
+          cargo build --features python --release --package arroyo --target ${{ matrix.config.build_target }}
+          Move-Item "target\${{ matrix.config.build_target }}\release\arroyo.exe" "artifacts\arroyo-python.exe"
+
+      - name: Build Arroyo without Python
+        run: |
+          cargo build --release --package arroyo --target ${{ matrix.config.build_target }}
+          Move-Item "target\${{ matrix.config.build_target }}\release\arroyo.exe" "artifacts\arroyo.exe"
+
+      - name: Upload Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: arroyo-${{ matrix.config.artifact }}
+          path: artifacts/*
+          if-no-files-found: error
+
