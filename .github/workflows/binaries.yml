@@ -64,7 +64,7 @@ jobs:
         run: cd webui && pnpm install && pnpm build
       - name: Install protoc compiler
         run: |
-          wget https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-${{ matrix.config.protoc }}.zip
+          curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-${{ matrix.config.protoc }}.zip
           unzip protoc*.zip
           sudo mv bin/protoc /usr/local/bin
       - name: Install cross compiler for aarch64
@@ -133,7 +133,7 @@ jobs:
         run: cd webui && pnpm install && pnpm build
       - name: Install protoc compiler
         run: |
-          wget https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-${{ matrix.config.protoc }}.zip
+          curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-${{ matrix.config.protoc }}.zip
           unzip protoc*.zip
           sudo mv bin/protoc /usr/local/bin
       - name: Install Postgres and prepare DB
@@ -221,7 +221,7 @@ jobs:
       - name: Install protoc compiler
         shell: bash
         run: |
-          wget https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-${{ matrix.config.protoc }}.zip
+          curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-${{ matrix.config.protoc }}.zip
           unzip protoc*.zip
           echo "$PWD/bin" >> $GITHUB_PATH
       - run: mkdir artifacts
