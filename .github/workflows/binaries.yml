@@ -25,8 +25,8 @@ jobs:
       fail-fast: true
       matrix:
         config:
-          - { runner: ubuntu-22.04-32, protoc: linux-x86_64, artifact: linux-x86_64 }
-          - { runner: ubuntu-22.04-32-arm, protoc: linux-aarch_64, artifact: linux-aarch64 }
+          - { runner: ubuntu-latest, protoc: linux-x86_64, artifact: linux-x86_64 }
+          - { runner: ubuntu-latest-arm, protoc: linux-aarch_64, artifact: linux-aarch64 }
     name: ${{ matrix.config.artifact }} build
     runs-on: ${{ matrix.config.runner }}
     services:
@@ -196,7 +196,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: ${{ matrix.config.build_target }}
+          prefix-key: ${{ matrix.config.artifact }}
 
       - uses: actions/setup-python@v5
         with:
