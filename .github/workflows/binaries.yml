@@ -214,6 +214,7 @@ jobs:
             artifact: windows-x86_64
             msys2_packages: >-
               mingw-w64-x86_64-toolchain
+              unzip
 
           # - runner: windows-latest
           #   build_target: aarch64-pc-windows-gnu
