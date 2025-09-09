@@ -220,9 +220,12 @@ jobs:
         run: |
           choco install postgresql14 -y --no-progress
           echo "C:\Program Files\PostgreSQL\14\bin" >> $env:GITHUB_PATH
+      - name: Initialize PostgreSQL
+        shell: pwsh
+        run: |
           Start-Sleep -Seconds 10
-          psql -U postgres -c "CREATE USER $env:POSTGRES_USER WITH PASSWORD '$env:POSTGRES_PASSWORD' SUPERUSER;"
-          createdb $env:POSTGRES_DB
+          & "C:\Program Files\PostgreSQL\14\bin\psql.exe" -U postgres -c "CREATE USER $env:POSTGRES_USER WITH PASSWORD '$env:POSTGRES_PASSWORD' SUPERUSER;"
+          & "C:\Program Files\PostgreSQL\14\bin\createdb.exe" $env:POSTGRES_DB
       - name: Run DB migrations
         run: |
           cargo install --debug refinery_cli --version ${{ env.REFINERY_VERSION }}
