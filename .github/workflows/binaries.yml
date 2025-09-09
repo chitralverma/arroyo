@@ -35,22 +35,10 @@ jobs:
           POSTGRES_USER: ${{ env.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
         ports:
           - 5432:5432
     steps:
-      - name: Setup conditional aarch64 cross-compilation
-        if: matrix.config.build_target == 'aarch64-unknown-linux-gnu'
-        run: |
-          sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
-          mkdir -p .cargo
-          echo '[target.aarch64-unknown-linux-gnu]' >> .cargo/config.toml
-          echo 'linker = "aarch64-linux-gnu-gcc"' >> .cargo/config.toml
-          echo "PYO3_CROSS_PYTHON_VERSION=${{ env.PYTHON_VERSION }}" >> $GITHUB_ENV
-
       - uses: actions/checkout@v5
 
       - uses: dtolnay/rust-toolchain@stable
@@ -59,7 +47,16 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: ${{ matrix.build_target }}
+          prefix-key: ${{ matrix.config.build_target }}
+
+      - name: Setup aarch64 cross-compilation
+        if: matrix.config.build_target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          mkdir -p .cargo
+          echo '[target.aarch64-unknown-linux-gnu]' >> .cargo/config.toml
+          echo 'linker = "aarch64-linux-gnu-gcc"' >> .cargo/config.toml
+          echo "PYO3_CROSS_PYTHON_VERSION=${{ env.PYTHON_VERSION }}" >> $GITHUB_ENV
 
       - uses: actions/setup-python@v5
         with:
@@ -128,7 +125,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: ${{ matrix.build_target }}
+          prefix-key: ${{ matrix.config.build_target }}
 
       - uses: actions/setup-python@v5
         with:
@@ -206,7 +203,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: ${{ matrix.build_target }}
+          prefix-key: ${{ matrix.config.build_target }}
 
       - uses: actions/setup-python@v5
         with:
