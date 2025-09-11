@@ -205,7 +205,7 @@ impl ArrowOperator for TumblingAggregatingWindowFunc<SystemTime> {
         "tumbling_window".to_string()
     }
 
-    fn display(&self) -> DisplayableOperator {
+    fn display(&self) -> DisplayableOperator<'_> {
         DisplayableOperator {
             name: Cow::Borrowed("TumblingAggregatingWindowFunc"),
             fields: vec![

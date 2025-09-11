@@ -1610,34 +1610,35 @@ impl<BBW: BatchBufferingWriter> BatchMultipartWriter<BBW> {
     ) -> Result<Vec<BoxedTryFuture<MultipartCallbackWithName>>> {
         self.multipart_manager.closed = true;
 
-        if let Some((bytes, metadata)) = self.batch_buffering_writer.close(None) {
+        if let Some((mut bytes, metadata)) = self.batch_buffering_writer.close(None) {
             self.metadata = metadata;
-            let existing_part_size = self.stats.as_ref().and_then(|s| s.part_size);
 
-            if self
-                .multipart_manager
-                .storage_provider
-                .requires_same_part_sizes()
-                && existing_part_size.is_some()
-                && bytes.len() > existing_part_size.unwrap()
-            {
-                // our last part is bigger than our part size, which isn't allowed by some object stores
-                // so we need to split it up
-                let part_size = existing_part_size.unwrap();
-                debug!("final multipart upload ({}) is bigger than part size ({}) so splitting into two",
-                    bytes.len(), part_size);
-                let mut part1 = bytes;
-                let part2 = part1.split_off(part_size);
-                // these can't be None, so safe to unwrap
-                let f1 = self.multipart_manager.write_next_part(part1)?.unwrap();
-                let f2 = self.multipart_manager.write_next_part(part2)?.unwrap();
-                Ok(vec![f1, f2])
-            } else {
-                Ok(self
+            match self.stats.as_ref().and_then(|s| s.part_size) {
+                Some(part_size)
+                    if self
+                        .multipart_manager
+                        .storage_provider
+                        .requires_same_part_sizes()
+                        && bytes.len() > part_size =>
+                {
+                    // our last part is bigger than our part size, which isn't allowed by some object stores
+                    // so we need to split it up
+                    debug!(
+                        "final multipart upload ({}) is bigger than part size ({}) so splitting into two",
+                        bytes.len(),
+                        part_size
+                    );
+                    let part2 = bytes.split_off(part_size);
+                    // these can't be None, so safe to unwrap
+                    let f1 = self.multipart_manager.write_next_part(bytes)?.unwrap();
+                    let f2 = self.multipart_manager.write_next_part(part2)?.unwrap();
+                    Ok(vec![f1, f2])
+                }
+                _ => Ok(self
                     .multipart_manager
                     .write_next_part(bytes)?
                     .into_iter()
-                    .collect())
+                    .collect()),
             }
         } else if self.multipart_manager.all_uploads_finished() {
             // Return a finished file future

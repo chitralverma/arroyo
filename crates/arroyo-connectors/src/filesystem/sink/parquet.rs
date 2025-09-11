@@ -363,7 +363,7 @@ pub(crate) fn batches_by_partition(
             .map(|col| take(col, &sort_indices, None).unwrap())
             .collect(),
     )?;
-    let partition = arrow::compute::partition(&[sorted_partition.clone()])?;
+    let partition = arrow::compute::partition(std::slice::from_ref(&sorted_partition))?;
     let typed_partition = sorted_partition
         .as_any()
         .downcast_ref::<StringArray>()
