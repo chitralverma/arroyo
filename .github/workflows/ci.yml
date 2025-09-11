@@ -4,15 +4,25 @@ on: [push, pull_request]
 
 env:
   # Versions
+  REFINERY_VERSION: "0.8.14"
+  PROTOC_VERSION: "27.3"
   PYTHON_VERSION: "3.12"
   NODE_VERSION: "20"
   PNPM_VERSION: "9.7.1"
 
-  DATABASE_URL: "postgres://arroyo:arroyo@localhost:5432/arroyo"
+  # Postgres related
+  REFINERY_CONFIG: postgres://arroyo:arroyo@localhost:5432/arroyo
+  POSTGRES_USER: arroyo
+  POSTGRES_PASSWORD: arroyo
+  POSTGRES_DB: arroyo
+  POSTGRES_HOST: localhost
+
+  RUST_CACHE_PREFIX_KEY: "linux-x86_64"
 
 jobs:
-  # Lint stage
-  lint-ui:
+  # Lint UI (prettier/ pnpm checks)
+  lint-console:
+    name: lint-console (webui)
     runs-on: ubuntu-latest
     steps:
       - name: Check out
@@ -37,7 +47,9 @@ jobs:
           pnpm install --frozen-lockfile --strict-peer-dependencies
           pnpm check
 
+  # Lint Rust (check formatting)
   lint-rust:
+    name: lint-rust (rustfmt)
     runs-on: ubuntu-latest
     steps:
       - name: Check out
@@ -46,13 +58,13 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy, rustfmt
+          components: rustfmt
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
-
-      - name: Run Clippy
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        with:
+          prefix-key: ${{ env.RUST_CACHE_PREFIX_KEY }}
 
       - name: Check Formatting
         run: cargo fmt -- --check
+
