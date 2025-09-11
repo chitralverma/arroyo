@@ -58,15 +58,24 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt
+          components: rustfmt, clippy
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
         with:
           prefix-key: ${{ env.RUST_CACHE_PREFIX_KEY }}
 
+      - name: Setup protoc compiler
+        run: |
+          curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-linux-x86_64.zip
+          unzip protoc*.zip
+          sudo mv bin/protoc /usr/local/bin
+
       - name: Check Formatting
         run: cargo fmt -- --check
+
+      - name: Run Clippy
+        run: cargo clippy --all-features --all-targets --workspace -- -D warnings
 
 
   # Build UI (produces webui artifact)
