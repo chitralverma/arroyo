@@ -64,6 +64,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           prefix-key: ${{ env.RUST_CACHE_PREFIX_KEY }}
+          cache-on-failure: "true"
 
       - name: Setup protoc compiler
         run: |
